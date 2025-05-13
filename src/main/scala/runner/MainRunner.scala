@@ -23,13 +23,11 @@ object MainRunner {
     val spark: SparkSession = SparkSession.builder()
       .appName("lsh-test-app")
       .master("local[*]")
-      .config("spark.memory.fraction", 0.8)
-      .config("spark.memory.storageFraction", 0.3)
-      .config("spark.driver.memory", "50g")
-      .config("spark.executor.memory", "50g")
+      .config("spark.driver.memory", "1g")
+      .config("spark.executor.memory", "5g")
+      .config("spark.sql.shuffle.partitions", 25)
       .getOrCreate()
 
-    import spark.implicits._
 
     val questionsDf: DataFrame = spark.read.format("csv")
       .load("data/assignment_questions.csv")
@@ -53,32 +51,22 @@ object MainRunner {
     val numOfQuestions = questionTextsRDD.count()
 
 
-    /**
-     * Matrix represented by RDD of SparseVectors. shingleMatrix[i, j]=1 iff question i contains shingle j.
-     */
-    val shingleMatrix: RDD[SparseVector] = questionTextsRDD.map { text =>
-      Shingler.createSparseShingleEncodedVector(text)
-    }
-
-    /**
-     * Input matrix, where rows are sets and columns are shingles. That's why we'll need to transpose it when creating the signature matrix.
-     */
-    val entries: RDD[MatrixEntry] = shingleMatrix.zipWithIndex().flatMap {
-      case (vector, rowIndex) =>
-        vector.indices.zip(vector.values).map {
-          case (colIndex, value) => MatrixEntry(rowIndex, colIndex, value)
-        }
-    }
+    val entries: RDD[MatrixEntry] = Shingler.createMatrixEntries(spark.sparkContext, questionTextsRDD)
+    entries.cache()
+    println(s"Number of entries: ${entries.count()}")
+//    val entries = Shingler.createBatchedMatrixEntries(spark.sparkContext, questionTextsRDD, 5000)
     val coordInputMatrix: CoordinateMatrix = new CoordinateMatrix(entries)
 
     /** Now we want to create a signature matrix. We will use 100 minhash functions. */
-    val signatureMatrix: Array[Array[Int]] = MatrixUtil.createSignatureMatrix(
+    val signatureMatrix: RDD[(Array[Int], Int)] = MatrixUtil.createSignatureMatrix(
                                                           spark.sparkContext,
                                                           coordInputMatrix.transpose(),
                                                           numOfQuestions.toInt,
                                                           Config.NUM_OF_HASH_FUN,
                                                           HashFunctionsHolder.hashFunctions)
-                                                          .transpose // rows: signatures
+//                                                          .transpose // rows: signatures
+//    signatureMatrix.cache()
+    println(s"Number of signatures: ${signatureMatrix.count()}")
 
     /** Now I have my signature matrix. Its dimensions are [HashFunctionsHolder.MINHASH_COUNT, numOfQuestions].
      * I want to partition this matrix into Config.NUM_OF_BANDS bands. Then, for b-th band of s-th signature,
@@ -91,18 +79,17 @@ object MainRunner {
      * FALSE POSITIVES = |krotkas2| - |krotkas1 intersect krotkas2|
      */
 
-    val bandHashes: RDD[((Int, Int), Int)] = spark.sparkContext.parallelize(
-      signatureMatrix.zipWithIndex.flatMap { case (row, rowIndex) =>
+    val bandHashes: RDD[((Int, Int), Int)] =
+      signatureMatrix.flatMap { case (row, rowIndex) =>
         // Group the row into bands of Config.BAND_SIZE elements
         row.grouped(Config.BAND_SIZE).zipWithIndex.map { case (band, bandIndex) =>
           val bandHash = MurmurHash3.arrayHash(band, Config.SEEDS(bandIndex))
           ((bandIndex, bandHash), rowIndex)
         }
-      }
-    )
+      }.repartition(spark.sparkContext.defaultParallelism * 2)
 
     // ((bandNumber, hashValue), signatureIndex)
-    val duplicateBands: RDD[((Int, Int), Iterable[Int])] = bandHashes.groupByKey()
+    val duplicateBands: RDD[((Int, Int), Iterable[Int])] = bandHashes.groupByKey().repartition(spark.sparkContext.defaultParallelism * 2)
 
     val candidatePairs: RDD[(Int, Int)] = duplicateBands
       .filter { case (_, docIds) => docIds.size > 1 }
@@ -116,10 +103,12 @@ object MainRunner {
           q2 = math.max(docIdArray(i), docIdArray(j)) + 1
         } yield (q1, q2)
       }
+      .repartition(spark.sparkContext.defaultParallelism * 2)
       .distinct()
+      .cache()
 
-    println(s"Number of candidate pairs: ${candidatePairs.count()}")
-    println(s"Candidate pairs: ${candidatePairs.sortByKey().take(1500).mkString(", ")}")
+//    println(s"Number of candidate pairs: ${candidatePairs.count()}")
+//    println(s"Candidate pairs: ${candidatePairs.sortByKey().take(1500).mkString(", ")}")
 
     val typedGoldDf = goldDf
       .withColumn("qid1", goldDf.col("qid1").cast("int"))
@@ -139,11 +128,11 @@ object MainRunner {
       .map { case (id1, id2, _) => (id1, id2) }
 
     // Find true positives (correctly identified duplicates)
-    val truePositives: RDD[(Int, Int)] = candidatePairs.intersection(truePositiveGold)
+    val truePositives: RDD[(Int, Int)] = candidatePairs.intersection(truePositiveGold).repartition(spark.sparkContext.defaultParallelism * 2).cache()
     val numTruePositives = truePositives.count()
 
     // Find false positives (incorrectly identified as duplicates)
-    val falsePositives: RDD[(Int, Int)] = candidatePairs.subtract(truePositiveGold)
+    val falsePositives: RDD[(Int, Int)] = candidatePairs.subtract(truePositiveGold).repartition(spark.sparkContext.defaultParallelism * 2)
     val numFalsePositives = falsePositives.count()
 
     // Calculate precision (percentage of predictions that are correct)
