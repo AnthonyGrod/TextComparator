@@ -1,26 +1,26 @@
 package shingle
 
-import org.apache.spark.mllib.linalg.{SparseVector, Vectors, Vector}
+import config.Config
+import config.Config.MAX_SHINGLE_HASH
+import org.apache.spark.mllib.linalg.{SparseVector, Vector, Vectors}
 
 import scala.util.hashing.MurmurHash3
 
 object Shingler {
-  val MAX_SHINGLE_HASH: Int = Int.MaxValue
-
   /**
    * Extracts shingles from a given text and converts them to integer hashes
    * @param text Input text to extract shingles from
    * @param k Size of each shingle (number of characters in each shingle)
    * @return A set of shingles as integer hash values
    */
-  private def extractShingles(text: String, k: Int = 8): Set[Int] = {
+  private def extractShingles(text: String, k: Int = Config.SHINGLE_SIZE): Set[Int] = {
     if (text == null || text.length < k) {
       Set.empty[Int]
     } else {
       val normalizedText = text.toLowerCase.replaceAll("\\s+", " ").trim
 
       normalizedText.sliding(k).map { shingle =>
-        MurmurHash3.stringHash(shingle) & 0xFFFFFFF
+        MurmurHash3.stringHash(shingle)
       }.toSet
     }
   }

@@ -1,10 +1,11 @@
 package hash
 
+import config.Config
+
 import scala.util.Random
 
 object HashFunctionsHolder {
-  val MINHASH_COUNT: Int = 100
-  val hashFunctions: Array[TabulationHash] = TabulationHashGenerator.generateHashFunctions(MINHASH_COUNT)
+  val hashFunctions: Array[TabulationHash] = TabulationHashGenerator.generateHashFunctions(Config.NUM_OF_HASH_FUN)
 }
 
 /**

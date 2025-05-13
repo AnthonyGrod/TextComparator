@@ -9,6 +9,8 @@ import _root_.hash.{HashFunctionsHolder, TabulationHash}
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import shingle.Shingler
 
+import scala.util.hashing.MurmurHash3
+
 object MatrixUtil {
   /**
    * @param coordInputMatrix Dimensions [Number of possible shingles (2^32), Number of questions (~5x10^5)]
@@ -20,16 +22,22 @@ object MatrixUtil {
                             numOfQuestions: Int,
                             hashFunctionsCount: Int,
                             hashFunctions: Array[TabulationHash]): Array[Array[Int]] = {
+    println("Entered createSignatureMatrix")
     val nonZeroEntriesByRow = coordInputMatrix.entries
       .map(entry => (entry.i, entry.j))
       .groupByKey()
-      .cache()  // Cache this RDD as we'll use it multiple times
+      .repartition(sc.defaultParallelism * 2)
+      .cache()
+
+    println("Finished groupBy")
 
     // Create a broadcast variable for hash functions to avoid sending them to each task
     val broadcastHashFunctions = sc.broadcast(hashFunctions)
 
     // Initialize the signature matrix with Int.MaxValue
     val sigMatrix = Array.fill(hashFunctionsCount)(Array.fill(numOfQuestions)(Int.MaxValue))
+
+    println("Finished broadcast")
 
     // Process each row in parallel and collect the minimum hash values
     val rowMinHashes: RDD[((Int, Int), Int)] = nonZeroEntriesByRow.flatMap { case (rowIndex, colIndices) =>
@@ -46,10 +54,14 @@ object MatrixUtil {
       }
     }
 
+    println("Finished flatMap")
+
     // Group by (hashFuncIndex, colIndex) and find minimum hash value for each
     val minHashValues: Array[((Int, Int), Int)] = rowMinHashes
       .reduceByKey(math.min)
       .collect()
+
+    println("Finished reduceByKey")
 
     // Update the signature matrix with the minimum hash values
     minHashValues.foreach { case ((hashFuncIndex, colIndex), minHashValue) =>
@@ -57,6 +69,8 @@ object MatrixUtil {
         sigMatrix(hashFuncIndex)(colIndex) = minHashValue
       }
     }
+
+    println("Finished foreach")
 
     sigMatrix
   }
