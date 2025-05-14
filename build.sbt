@@ -1,6 +1,6 @@
 import Dependencies._
 
-ThisBuild / scalaVersion     := "2.13.12"
+ThisBuild / scalaVersion     := "2.12.20"
 ThisBuild / version          := "0.1.0-SNAPSHOT"
 ThisBuild / organization     := "ch.epfl.scala"
 ThisBuild / organizationName := "runner"

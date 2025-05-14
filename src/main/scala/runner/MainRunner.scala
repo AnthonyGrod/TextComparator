@@ -46,7 +46,7 @@ object MainRunner {
     val sortedQuestionsDf = typedQuestionsDf.orderBy("id").filter(col("id").isNotNull)
 
     val questionTextsRDD = sortedQuestionsDf.select("question")
-      .limit(TEMPORARY_LIMIT) // TODO(in actual prod, remove limit)
+//      .limit(TEMPORARY_LIMIT) // TODO(in actual prod, remove limit)
       .rdd.map(row => row.getString(0))
     val numOfQuestions = questionTextsRDD.count()
 
@@ -114,7 +114,7 @@ object MainRunner {
       .withColumn("qid1", goldDf.col("qid1").cast("int"))
       .withColumn("qid2", goldDf.col("qid2").cast("int"))
       .withColumn("is_duplicate", goldDf.col("is_duplicate").cast("boolean"))
-      .filter(col("qid1") <= TEMPORARY_LIMIT && col("qid2") <= TEMPORARY_LIMIT) // TODO(in actual prod, remove limit)
+//      .filter(col("qid1") <= TEMPORARY_LIMIT && col("qid2") <= TEMPORARY_LIMIT) // TODO(in actual prod, remove limit)
 
 
     val goldRDD: RDD[(Int, Int, Boolean)] = typedGoldDf.select("qid1", "qid2", "is_duplicate").rdd.map { row =>

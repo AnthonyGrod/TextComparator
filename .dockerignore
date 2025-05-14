@@ -1,0 +1,9 @@
+target/
+project/target/
+project/project/
+.git
+.gitignore
+*.log
+*.class
+.bsp
+*.md

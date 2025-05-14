@@ -1,0 +1,18 @@
+version: '3'
+
+services:
+  spark-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lsh-test-spark-app
+    volumes:
+      - ./data:/app/data
+    environment:
+      - SPARK_LOCAL_IP=spark-app
+    ports:
+      - "4040:4040"  # Spark UI port
+    deploy:
+      resources:
+        limits:
+          memory: 5g  # Based on your Spark memory configuration

@@ -5,7 +5,7 @@ import org.apache.spark.mllib.linalg.{DenseMatrix, DenseVector, SparseVector}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions._
-import _root_.hash.{HashFunctionsHolder, TabulationHash}
+import _root_.hash.{HashFunctionsHolder, UniversalHash}
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.storage.StorageLevel
 import shingle.Shingler
@@ -89,7 +89,7 @@ object MatrixUtil {
                                                         coordInputMatrix: CoordinateMatrix, // VERY sparse
                                                         numOfQuestions: Int,
                                                         hashFunctionsCount: Int,
-                                                        hashFunctions: Array[TabulationHash]
+                                                        hashFunctions: Array[UniversalHash]
                                     ): RDD[(Array[Int], Int)] = {
 
     // Calculate optimal partition counts
