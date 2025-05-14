@@ -6,6 +6,5 @@ object Config {
   val NUM_OF_HASH_FUN: Int = 1000
   val BAND_SIZE: Int = NUM_OF_HASH_FUN / NUM_OF_BANDS
   val SHINGLE_SIZE: Int = 8
-  val TEMPORARY_LIMIT = 1000000000
-  val SEEDS: Array[Long] = Array.tabulate(Config.NUM_OF_BANDS)(i => 42 + i)
+  val TEMPORARY_LIMIT = 10000
 }

@@ -13,10 +13,10 @@ of actual duplicate questions, compared to the whole dataset.
 
 ## Results table
 
-| Shingle size | Signature size | Number of bands | TP     | FP      |
-|--------------|----------------|-----------------|--------|---------|
-| 5            | 100            | 20              | 31533  | 2006090 |
-| 8            | 1000           | 100             | 12143  | 520169  |
+| Shingle size | Signature size | Number of bands | TP     | FP     |
+|--------------|----------------|-----------------|--------|--------|
+| 5            | 100            | 20              | 31533  | 28780  |
+| 8            | 1000           | 100             | 12143  | 13572  |
 
 
 ## Running the program

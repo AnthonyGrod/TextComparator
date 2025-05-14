@@ -10,6 +10,18 @@ import config.Config.TEMPORARY_LIMIT
 import shingle.Shingler
 import util.MatrixUtil
 
+case class BandKey(array: Array[Long], index: Int) extends Serializable {
+  override def equals(obj: Any): Boolean = obj match {
+    case BandKey(otherArray, otherIndex) =>
+      otherIndex == index && java.util.Arrays.equals(array, otherArray)
+    case _ => false
+  }
+
+  override def hashCode(): Int = {
+    31 * java.util.Arrays.hashCode(array) + index.hashCode()
+  }
+}
+
 
 object MainRunner {
   def main(args: Array[String]): Unit = {
@@ -37,7 +49,7 @@ object MainRunner {
       .filter(row => row.getString(0) != "qid1" && row.getString(1) != "qid2" && row.getString(2) != "is_duplicate")
 
     val typedQuestionsDf = questionsDf.withColumn("id", questionsDf.col("id").cast("int"))
-    val sortedQuestionsDf = typedQuestionsDf.filter(col("id").isNotNull)
+    val sortedQuestionsDf = typedQuestionsDf.filter(col("id").isNotNull).orderBy("id")
 
     val questionTextsWithIndex = sortedQuestionsDf
       .select("id", "question")
@@ -55,19 +67,21 @@ object MainRunner {
                                                           coordInputMatrix,
                                                           HashFunctionsHolder.hashFunctions)
 
-    val bandHashes: RDD[((Long, Long, Long), Int)] =
+    val bandHashes: RDD[((Long, Long), Int)] =
       signatureMatrix.flatMap { case (row, rowIndex) =>
         // Group the row into bands of Config.BAND_SIZE elements
         row.grouped(Config.BAND_SIZE).zipWithIndex.map { case (band, bandIndex) =>
-          val bandHash1Long = band.foldLeft(42L + Config.SEEDS(bandIndex)) { (hash, value) =>
-            (hash * 31) ^ (value & 0xFFFFFFFFFFFFFFFFL)
-          }
-
-          val bandHash2Long = band.foldRight(72L + Config.SEEDS(bandIndex)) { (hash, value) =>
-            (hash * 31) ^ (value & 0xFFFFFFFFFFFFFFFFL)
-          }
-
-          ((bandIndex.toLong, bandHash1Long, bandHash2Long), rowIndex)
+//          val bandHash1Long = band.foldLeft(42L + Config.SEEDS(bandIndex)) { (hash, value) =>
+//            (hash * 31) ^ (value & 0xFFFFFFFFFFFFFFFFL)
+//          }
+//
+//          val bandHash2Long = band.foldRight(72L + Config.SEEDS(bandIndex)) { (hash, value) =>
+//            (hash * 31) ^ (value & 0xFFFFFFFFFFFFFFFFL)
+//          }
+//
+//          ((bandIndex.toLong, bandHash1Long, bandHash2Long), rowIndex)
+          val bandHash: Long = (31 * java.util.Arrays.hashCode(band) + bandIndex.hashCode()) & 0xFFFFFFFFFFFFFFFFL
+          ((bandIndex.toLong, bandHash), rowIndex)
         }
       }.repartition(spark.sparkContext.defaultParallelism * 2)
 
@@ -75,7 +89,7 @@ object MainRunner {
 
 
     // ((bandNumber, hashValue1, hashValue2), signatureIndexes)
-    val duplicateBands: RDD[((Long, Long, Long), Iterable[Int])] = bandHashes.groupByKey().repartition(spark.sparkContext.defaultParallelism * 2)
+    val duplicateBands: RDD[((Long, Long), Iterable[Int])] = bandHashes.groupByKey().repartition(spark.sparkContext.defaultParallelism * 2)
 
     val candidatePairs: RDD[(Long, Long)] = duplicateBands
       .filter { case (_, docIds) => docIds.size > 1 }
@@ -109,10 +123,14 @@ object MainRunner {
       .filter { case (_, _, isDuplicate) => isDuplicate }
       .map { case (id1, id2, _) => (id1, id2) }
 
+    val trueNegativeGold: RDD[(Long, Long)] = goldRDD
+      .filter { case (_, _, isDuplicate) => !isDuplicate }
+      .map { case (id1, id2, _) => (id1, id2) }
+
     val truePositives: RDD[(Long, Long)] = candidatePairs.intersection(truePositiveGold).repartition(spark.sparkContext.defaultParallelism * 2).cache()
     val numTruePositives = truePositives.count()
 
-    val falsePositives: RDD[(Long, Long)] = candidatePairs.subtract(truePositiveGold).repartition(spark.sparkContext.defaultParallelism * 2)
+    val falsePositives: RDD[(Long, Long)] = candidatePairs.subtract(truePositiveGold).intersection(trueNegativeGold).repartition(spark.sparkContext.defaultParallelism * 2).cache()
     val numFalsePositives = falsePositives.count()
 
     val precision = numTruePositives.toDouble / (numTruePositives + numFalsePositives)
