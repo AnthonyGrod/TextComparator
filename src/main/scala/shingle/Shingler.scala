@@ -55,10 +55,8 @@ object Shingler {
 
     val trimmed = text.trim
 
-    // Check if the text starts with any of the prefixes
     prefixes.foldLeft(trimmed) { (current, prefix) =>
       if (current.startsWith(prefix)) {
-        // Remove the prefix and any space after it
         current.substring(prefix.length).trim
       } else {
         current

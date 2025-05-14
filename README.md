@@ -1,15 +1,20 @@
 ## Overview
 
-Locality sensitive hashing does not work well with short strings.
+This project is a massively distributed implementation of the Locality Sensitive Hashing.
+LSH can efficiently compare long sequences of characters, e.g. documents.
 
-Because questions have very similar form, there are very high chances that
-questions' bands will be hashed to the same bucket.
+Project implemented here helps to answer whether LSH is useful for comparing shorter strings. 
+In order to do that, this program will evaluate LSH effectiveness on a dataset of real questions 
+from Google search.
 
-Out of curiosity, I tried my LSH algorithm on the first 1000 questions (sorted by
-ids) and it performed far better in terms of precision compared to running
-on whole dataset (recall and precision was aroung 40%). 
-My guess is that first 1000 questions are superficially more dense in terms 
-of actual duplicate questions, compared to the whole dataset.
+Tools used: Spark, Scala, Docker.
+
+## Results
+
+It turns out, LSH does not work well with short strings - it produces a very high percentage of false positives.
+My suspicion is that in short strings it's really hard to distinguish them based on their semantic meaning. I tried
+multiple ways to optimize the precision, e.g. cutting common prefixes such as "Does" or "What", 
+but the results were not satisfactory.
 
 ## Results table
 
@@ -26,6 +31,6 @@ In order to run it, one needs to execute:
 docker build -t lsh-app:latest .
 docker run -p 8080:4040 --rm lsh-app:latest
 ```
-The Spark UI will be available at `http://localhost:4040/jobs/`
+The Spark UI will be available at `http://0.0.0.0:8080/jobs/`
 Screenshot of the execution on the cluster:
 ![Description of the image](img/cluster_running.png)
