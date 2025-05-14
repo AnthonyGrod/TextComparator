@@ -2,7 +2,6 @@ FROM openjdk:11-jre-slim
 
 RUN apt-get update && apt-get install -y wget tar
 
-# Install build dependencies
 RUN apt-get update && apt-get install -y \
     wget \
     tar \
@@ -12,7 +11,6 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Download and install Apache Spark
 ENV SPARK_VERSION=3.5.5
 RUN wget https://archive.apache.org/dist/spark/spark-$SPARK_VERSION/spark-$SPARK_VERSION-bin-hadoop3.tgz \
     && tar -xzf spark-$SPARK_VERSION-bin-hadoop3.tgz -C /opt \
@@ -28,23 +26,18 @@ RUN curl -L -o sbt-$SBT_VERSION.tgz https://github.com/sbt/sbt/releases/download
 ENV JAVA_OPTS="-Xms512m -Xmx2g"
 ENV SBT_OPTS="-Xms512m -Xmx2g -XX:+UseG1GC"
 
-# Set environment variables
 ENV SPARK_HOME=/opt/spark
 ENV PATH=$SPARK_HOME/bin:/usr/local/sbt/bin:$PATH
 
-# Set the working directory
 WORKDIR /app
 
-# Copy only necessary build files first (for better caching)
 COPY build.sbt /app/
 COPY project /app/project/
 
 RUN sbt update
 
-# Copy the rest of the application
 COPY . /app/
 
 RUN sbt package
 
-# Set the default command to run the Spark application
 CMD ["spark-submit", "--class", "runner.MainRunner", "target/scala-2.12/lsh-test_2.12-0.1.0-SNAPSHOT.jar"]

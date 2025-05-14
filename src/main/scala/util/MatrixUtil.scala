@@ -2,7 +2,7 @@ package util
 
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import _root_.hash.UniversalHash
+import hash.UniversalHash
 import org.apache.spark.mllib.linalg.distributed.MatrixEntry
 import org.apache.spark.storage.StorageLevel
 

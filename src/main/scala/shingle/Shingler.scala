@@ -4,7 +4,6 @@ import config.Config
 import config.Config.MAX_SHINGLE_HASH
 import org.apache.spark.SparkContext
 import org.apache.spark.mllib.linalg.distributed.MatrixEntry
-import org.apache.spark.mllib.linalg.{SparseVector, Vector, Vectors}
 import org.apache.spark.rdd.RDD
 
 import scala.util.hashing.MurmurHash3
@@ -63,8 +62,5 @@ object Shingler {
       }
     }
   }
-
-
-
 }
 

@@ -11,8 +11,8 @@ services:
     environment:
       - SPARK_LOCAL_IP=spark-app
     ports:
-      - "4040:4040"  # Spark UI port
+      - "4040:4040"
     deploy:
       resources:
         limits:
-          memory: 5g  # Based on your Spark memory configuration
+          memory: 5g
