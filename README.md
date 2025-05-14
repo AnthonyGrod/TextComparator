@@ -26,3 +26,6 @@ In order to run it, one needs to execute:
 docker build -t lsh-app:latest .
 docker run -p 8080:4040 --rm lsh-app:latest
 ```
+The Spark UI will be available at `http://localhost:4040/jobs/`
+Screenshot of the execution on the cluster:
+![Description of the image](img/cluster_running.png)
